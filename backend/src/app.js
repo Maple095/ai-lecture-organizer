@@ -11,6 +11,7 @@ import healthRouter from './routes/health.js';
 import authRouter from './routes/auth.js';
 import documentsRouter from './routes/documents.js';
 import searchRouter from './routes/search.js';
+import chatRouter from './routes/chat.js';
 
 export function createApp(options = {}) {
   const app = express();
@@ -81,6 +82,7 @@ export function createApp(options = {}) {
   app.use('/api/auth', authRouter);
   app.use('/api/documents', documentsRouter);
   app.use('/api/search', searchRouter);
+  app.use('/api/chat', chatRouter);
 
   // 7. 404 處理
   app.use(notFoundHandler);

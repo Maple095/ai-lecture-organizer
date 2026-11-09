@@ -129,3 +129,9 @@ export async function searchChunks({
   const res = await query(sql, params);
   return res.rows;
 }
+
+export const searchService = {
+  tokenizeChinese2Gram,
+  buildTsQueryString,
+  searchChunks,
+};
