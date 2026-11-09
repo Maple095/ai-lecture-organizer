@@ -10,6 +10,7 @@ import { notFoundHandler, globalErrorHandler } from './middlewares/errorHandler.
 import healthRouter from './routes/health.js';
 import authRouter from './routes/auth.js';
 import documentsRouter from './routes/documents.js';
+import searchRouter from './routes/search.js';
 
 export function createApp(options = {}) {
   const app = express();
@@ -32,7 +33,6 @@ export function createApp(options = {}) {
 
   // 4. Session 狀態管理 (express-session + connect-pg-simple)
   if (options.testUser) {
-    // 測試專用身分注入中介層
     app.use((req, res, next) => {
       req.session = {
         userId: options.testUser.id,
@@ -80,6 +80,7 @@ export function createApp(options = {}) {
   app.use('/api/health', healthRouter);
   app.use('/api/auth', authRouter);
   app.use('/api/documents', documentsRouter);
+  app.use('/api/search', searchRouter);
 
   // 7. 404 處理
   app.use(notFoundHandler);

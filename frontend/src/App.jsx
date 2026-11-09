@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import Layout from './components/Layout';
 import DocumentUpload from './components/DocumentUpload';
 import DocumentList from './components/DocumentList';
+import SearchPanel from './components/SearchPanel';
 
 function MainDashboard() {
   const { user } = useAuth();
@@ -47,6 +48,9 @@ function MainDashboard() {
 
         {user ? (
           <>
+            {/* 全文檢索組件 */}
+            <SearchPanel />
+
             {/* 上傳組件 */}
             <DocumentUpload onUploadSuccess={handleUploadSuccess} />
 

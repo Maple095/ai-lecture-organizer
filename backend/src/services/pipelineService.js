@@ -4,11 +4,12 @@ import { pool, query } from '../db/index.js';
 import { storageAdapter } from '../storage/index.js';
 import { getParserForFile } from '../parsers/index.js';
 import { splitIntoChunks } from './chunkingService.js';
+import { tokenizeChinese2Gram } from './searchService.js';
 
 /**
  * 執行講義解析、切分與 Chunks 入庫流程
  * @param {string} documentId
- * @returns {Promise<{ success: boolean, chunkCount: number }>}
+ * @returns {Promise<{ success: boolean, chunkCount: number, parserType: string }>}
  */
 export async function processDocument(documentId) {
   const client = await pool.connect();
@@ -71,20 +72,22 @@ export async function processDocument(documentId) {
     // 刪除舊 Chunks (MVCC 保證提交前外部搜尋無損)
     await client.query('DELETE FROM document_chunks WHERE document_id = $1;', [doc.id]);
 
-    // 批次寫入新 Chunks
+    // 批次寫入新 Chunks，同時生成中文 2-gram search_vector
     const insertChunkSql = `
       INSERT INTO document_chunks (
         document_id, user_id, chunk_index, content, source_location, chunking_version, search_vector
-      ) VALUES ($1, $2, $3, $4, $5, 1, to_tsvector('simple', $4));
+      ) VALUES ($1, $2, $3, $4, $5, 1, to_tsvector('simple', $6));
     `;
 
     for (const chunk of chunks) {
+      const tokens = tokenizeChinese2Gram(chunk.content).join(' ');
       await client.query(insertChunkSql, [
         doc.id,
         doc.user_id,
         chunk.chunkIndex,
         chunk.content,
         JSON.stringify(chunk.sourceLocation),
+        tokens,
       ]);
     }
 
