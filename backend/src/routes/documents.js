@@ -8,6 +8,7 @@ import {
   deleteDocument,
   MAX_FILE_SIZE_BYTES
 } from '../services/documentService.js';
+import { processDocument } from '../services/pipelineService.js';
 import { storageAdapter } from '../storage/index.js';
 import { successResponse, errorResponse } from '../utils/response.js';
 
@@ -26,7 +27,7 @@ router.use(requireAuth);
 
 /**
  * @route POST /api/documents/upload
- * @desc 上傳並持久化保存講義檔案
+ * @desc 上傳並持久化保存講義檔案 (支援自動背景觸發解析)
  */
 router.post('/upload', upload.single('file'), async (req, res, next) => {
   try {
@@ -36,6 +37,12 @@ router.post('/upload', upload.single('file'), async (req, res, next) => {
       file: req.file,
       courseId,
     });
+
+    // 非同步自動觸發背景解析 (不阻塞 HTTP 回應)
+    processDocument(document.id).catch(err => {
+      console.warn(`[Background Parse Notice] Doc ${document.id}: ${err.message}`);
+    });
+
     return successResponse(res, document, 201, '檔案上傳成功，已持久化保存');
   } catch (err) {
     if (err.status) {
@@ -46,8 +53,30 @@ router.post('/upload', upload.single('file'), async (req, res, next) => {
 });
 
 /**
+ * @route POST /api/documents/:id/process
+ * @desc 手動觸發文件解析與 Chunking
+ */
+router.post('/:id/process', async (req, res, next) => {
+  try {
+    // 驗證使用者所有權
+    await getDocumentById({
+      id: req.params.id,
+      userId: req.user.id,
+    });
+
+    const result = await processDocument(req.params.id);
+    return successResponse(res, result, 200, '文件解析與分塊完成');
+  } catch (err) {
+    if (err.status) {
+      return errorResponse(res, err.code, err.message, err.status);
+    }
+    next(err);
+  }
+});
+
+/**
  * @route GET /api/documents
- * @desc 取得目前登入使用者之文件清單 (支援分頁與狀態過濾)
+ * @desc 取得目前登入使用者之文件清單
  */
 router.get('/', async (req, res, next) => {
   try {
@@ -67,7 +96,7 @@ router.get('/', async (req, res, next) => {
 
 /**
  * @route GET /api/documents/:id
- * @desc 取得單一文件詳細資訊 (多租戶隔離驗證)
+ * @desc 取得單一文件詳細資訊
  */
 router.get('/:id', async (req, res, next) => {
   try {
@@ -86,7 +115,7 @@ router.get('/:id', async (req, res, next) => {
 
 /**
  * @route GET /api/documents/:id/download
- * @desc 原始檔案安全串流下載 (RFC 5987 檔名編碼與 ETag 校驗)
+ * @desc 原始檔案安全串流下載 (RFC 5987)
  */
 router.get('/:id/download', async (req, res, next) => {
   try {
@@ -97,7 +126,6 @@ router.get('/:id/download', async (req, res, next) => {
 
     const fileStream = storageAdapter.getFileStream(doc.storage_path);
 
-    // RFC 5987 安全檔名編碼
     const encodedFilename = encodeURIComponent(doc.original_filename);
     res.setHeader('Content-Type', doc.mime_type || 'application/octet-stream');
     res.setHeader(
