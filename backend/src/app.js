@@ -9,6 +9,7 @@ import { requestLogger } from './middlewares/logger.js';
 import { notFoundHandler, globalErrorHandler } from './middlewares/errorHandler.js';
 import healthRouter from './routes/health.js';
 import authRouter from './routes/auth.js';
+import documentsRouter from './routes/documents.js';
 
 export function createApp(options = {}) {
   const app = express();
@@ -30,33 +31,45 @@ export function createApp(options = {}) {
   app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 
   // 4. Session 狀態管理 (express-session + connect-pg-simple)
-  let sessionStore;
-  if (options.sessionStore) {
-    sessionStore = options.sessionStore;
-  } else if (config.env === 'test' && !process.env.USE_PG_SESSION_TEST) {
-    sessionStore = new session.MemoryStore();
-  } else {
-    const PgSession = connectPgSimple(session);
-    sessionStore = new PgSession({
-      pool,
-      tableName: 'session',
-      createTableIfMissing: false, // 由 migrate.js 明確建立
+  if (options.testUser) {
+    // 測試專用身分注入中介層
+    app.use((req, res, next) => {
+      req.session = {
+        userId: options.testUser.id,
+        userEmail: options.testUser.email,
+        userDisplayName: options.testUser.displayName,
+      };
+      next();
     });
-  }
-
-  app.use(session({
-    name: 'lecture_sid',
-    store: sessionStore,
-    secret: config.session.secret,
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      httpOnly: true,
-      secure: config.isProduction,
-      sameSite: 'lax',
-      maxAge: config.session.maxAge,
+  } else {
+    let sessionStore;
+    if (options.sessionStore) {
+      sessionStore = options.sessionStore;
+    } else if (config.env === 'test' && !process.env.USE_PG_SESSION_TEST) {
+      sessionStore = new session.MemoryStore();
+    } else {
+      const PgSession = connectPgSimple(session);
+      sessionStore = new PgSession({
+        pool,
+        tableName: 'session',
+        createTableIfMissing: false,
+      });
     }
-  }));
+
+    app.use(session({
+      name: 'lecture_sid',
+      store: sessionStore,
+      secret: config.session.secret,
+      resave: false,
+      saveUninitialized: false,
+      cookie: {
+        httpOnly: true,
+        secure: config.isProduction,
+        sameSite: 'lax',
+        maxAge: config.session.maxAge,
+      }
+    }));
+  }
 
   // 5. 脫敏請求日誌
   if (config.env !== 'test') {
@@ -66,6 +79,7 @@ export function createApp(options = {}) {
   // 6. 核心業務路由
   app.use('/api/health', healthRouter);
   app.use('/api/auth', authRouter);
+  app.use('/api/documents', documentsRouter);
 
   // 7. 404 處理
   app.use(notFoundHandler);
