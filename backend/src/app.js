@@ -1,16 +1,21 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import session from 'express-session';
+import connectPgSimple from 'connect-pg-simple';
+import { pool } from './db/index.js';
+import { config } from './config/index.js';
 import { requestLogger } from './middlewares/logger.js';
 import { notFoundHandler, globalErrorHandler } from './middlewares/errorHandler.js';
 import healthRouter from './routes/health.js';
+import authRouter from './routes/auth.js';
 
-export function createApp() {
+export function createApp(options = {}) {
   const app = express();
 
   // 1. 安全防護標頭 (Helmet)
   app.use(helmet({
-    contentSecurityPolicy: false, // 允許前端 API 正常通訊，具體 CSP 在 preview 路由嚴格套用
+    contentSecurityPolicy: false,
     crossOriginEmbedderPolicy: false,
   }));
 
@@ -24,18 +29,48 @@ export function createApp() {
   app.use(express.json({ limit: '20mb' }));
   app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 
-  // 4. 脫敏請求日誌
-  if (process.env.NODE_ENV !== 'test') {
+  // 4. Session 狀態管理 (express-session + connect-pg-simple)
+  let sessionStore;
+  if (options.sessionStore) {
+    sessionStore = options.sessionStore;
+  } else if (config.env === 'test' && !process.env.USE_PG_SESSION_TEST) {
+    sessionStore = new session.MemoryStore();
+  } else {
+    const PgSession = connectPgSimple(session);
+    sessionStore = new PgSession({
+      pool,
+      tableName: 'session',
+      createTableIfMissing: false, // 由 migrate.js 明確建立
+    });
+  }
+
+  app.use(session({
+    name: 'lecture_sid',
+    store: sessionStore,
+    secret: config.session.secret,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,
+      secure: config.isProduction,
+      sameSite: 'lax',
+      maxAge: config.session.maxAge,
+    }
+  }));
+
+  // 5. 脫敏請求日誌
+  if (config.env !== 'test') {
     app.use(requestLogger);
   }
 
-  // 5. 核心健康檢查路由
+  // 6. 核心業務路由
   app.use('/api/health', healthRouter);
+  app.use('/api/auth', authRouter);
 
-  // 6. 404 處理
+  // 7. 404 處理
   app.use(notFoundHandler);
 
-  // 7. 全域錯誤處理
+  // 8. 全域錯誤處理
   app.use(globalErrorHandler);
 
   return app;

@@ -1,10 +1,10 @@
 import React from 'react';
 import Header from './Header';
 
-export default function Layout({ children, user, onLogout }) {
+export default function Layout({ children }) {
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <Header user={user} onLogout={onLogout} />
+      <Header />
       <main style={{ flex: 1, padding: '2rem 0' }}>
         <div className="container">
           {children}
