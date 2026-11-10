@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import MarkdownRenderer from './MarkdownRenderer';
 
 export default function AiChatPanel() {
   const [question, setQuestion] = useState('');
@@ -333,18 +334,21 @@ export default function AiChatPanel() {
               {/* 對話氣泡 */}
               <div
                 style={{
-                  maxWidth: '85%',
-                  padding: '0.75rem 1rem',
+                  maxWidth: '92%',
+                  padding: '0.75rem 1.15rem',
                   borderRadius: '12px',
                   backgroundColor: isUser ? 'var(--primary)' : 'var(--primary-light)',
                   color: isUser ? '#ffffff' : 'var(--text-main)',
                   border: isUser ? 'none' : '1px solid #bfdbfe',
-                  whiteSpace: 'pre-wrap',
                   lineHeight: '1.6',
                   fontSize: '0.9rem',
                 }}
               >
-                {msg.content}
+                {isUser ? (
+                  <div style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</div>
+                ) : (
+                  <MarkdownRenderer content={msg.content} />
+                )}
               </div>
 
               {/* 參考資料不足警告提示 */}

@@ -40,11 +40,19 @@ describe('Step 3: Document Management System Tests', () => {
       const original = '3.2 講義.pdf';
       const garbled = Buffer.from(original, 'utf8').toString('latin1');
       expect(fixFilenameEncoding(garbled)).toBe(original);
+
+      const mathOriginal = '3.2 數列與級數.pdf';
+      const mathGarbled = Buffer.from(mathOriginal, 'utf8').toString('latin1');
+      expect(fixFilenameEncoding(mathGarbled)).toBe(mathOriginal);
+
+      expect(fixFilenameEncoding('3.2 數列與級數.pdf')).toBe('3.2 數列與級數.pdf');
       expect(fixFilenameEncoding('regular_document.docx')).toBe('regular_document.docx');
     });
 
     test('sanitizeFilename should completely preserve Chinese characters and not replace with x', () => {
       expect(sanitizeFilename('3.2 講義.pdf')).toBe('3.2 講義.pdf');
+      expect(sanitizeFilename('3.2 數列與級數.pdf')).toBe('3.2 數列與級數.pdf');
+      expect(sanitizeFilename('高等微積分與線性代數整理.pdf')).toBe('高等微積分與線性代數整理.pdf');
       expect(sanitizeFilename('作業系統概論 (OS) - 期中整理 2024.docx')).toBe('作業系統概論 (OS) - 期中整理 2024.docx');
       expect(sanitizeFilename('../../危險路徑_講義.pdf')).toBe('_.._危險路徑_講義.pdf');
     });

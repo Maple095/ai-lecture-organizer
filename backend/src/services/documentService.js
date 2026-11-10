@@ -22,18 +22,32 @@ export const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024; // 20 MB
 
 /**
  * 修復 Multer 在解析 multipart/form-data 時因預設 latin1 編碼導致的中文檔名亂碼問題
- * (例如 '3.2 è¬›ç¾©.pdf' 或 '3.2 æ¸å¯—.pdf' 還原為 '3.2 講義.pdf')
+ * (例如 '3.2 è¬›ç¾©.pdf' 或 '3.2 æ•¸åˆ—èˆ‡ç´šæ•¸.pdf' 還原為 '3.2 數列與級數.pdf')
+ * 
+ * 重要：若字串本身已經含有 Unicode 字元 (charCode > 255，如 '數' 0x6578)，
+ * 絕不可再經由 Buffer.from(filename, 'latin1') 轉換，否則 0x6578 & 0xFF 會被截斷為 0x78 ('x')，
+ * 導致中文字元被直接洗成英文字母 'x'！
  * @param {string} filename 
  * @returns {string} 正確 UTF-8 編碼之檔名
  */
 export function fixFilenameEncoding(filename) {
   if (!filename || typeof filename !== 'string') return '';
-  try {
-    const decoded = Buffer.from(filename, 'latin1').toString('utf8');
-    return decoded.includes('\uFFFD') ? filename : decoded;
-  } catch {
+  
+  // 若已包含非 Latin-1 字元 (如標準中文字、日韓文)，表示已經是完整 UTF-8 Unicode 字串，直接返回
+  if (/[^\x00-\xFF]/.test(filename)) {
     return filename;
   }
+
+  try {
+    const decoded = Buffer.from(filename, 'latin1').toString('utf8');
+    // 解碼後無無效 UTF-8 替代字元 (\uFFFD) 且確實包含多位元組非 ASCII 字元時，才採納還原結果
+    if (!decoded.includes('\uFFFD') && /[^\x00-\x7F]/.test(decoded)) {
+      return decoded;
+    }
+  } catch {
+    // 忽略解碼異常，安全回退
+  }
+  return filename;
 }
 
 /**
@@ -43,7 +57,7 @@ export function fixFilenameEncoding(filename) {
  * @returns {string} 安全且完整保留中文字元的檔名
  */
 export function sanitizeFilename(filename) {
-  if (!filename || typeof filename !== 'string') return 'unnamed_file';
+  if (!filename || typeof filename !== 'string') return 'unnamed_document';
   
   // 1. 還原可能被 latin1 誤譯的 UTF-8 中文檔名
   const decoded = fixFilenameEncoding(filename);
