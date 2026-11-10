@@ -19,7 +19,8 @@ logs/
 
 # Runtime Data & Storage
 /var/data/storage
-storage/
+/storage/
+/backend/storage/
 tmp/
 temp/
 *.tmp
