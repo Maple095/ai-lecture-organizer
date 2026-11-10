@@ -36,8 +36,16 @@ describe('Step 7: AI RAG & Provider Adapter Tests', () => {
         .toBe('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions');
       expect(resolveChatCompletionUrl('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'))
         .toBe('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions');
+      expect(resolveChatCompletionUrl('https://generativelanguage.googleapis.com/v1beta/'))
+        .toBe('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions');
+      expect(resolveChatCompletionUrl('https://generativelanguage.googleapis.com'))
+        .toBe('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions');
+      expect(resolveChatCompletionUrl('https://api.openai.com'))
+        .toBe('https://api.openai.com/v1/chat/completions');
       expect(resolveChatCompletionUrl('https://api.openai.com/v1'))
         .toBe('https://api.openai.com/v1/chat/completions');
+      expect(resolveChatCompletionUrl('https://api.groq.com'))
+        .toBe('https://api.groq.com/openai/v1/chat/completions');
       expect(resolveChatCompletionUrl(''))
         .toBe('https://api.openai.com/v1/chat/completions');
     });

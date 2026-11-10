@@ -79,20 +79,27 @@ ${question}`;
     ? new AiProviderAdapter({ apiKey: apiKey.trim(), baseUrl, model })
     : aiProvider;
 
-  const aiResult = await provider.generateChatCompletion({
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt }
-    ],
-    temperature: 0.2,
-  });
+  console.log(`[RAG Service] Invoking AI completion for question "${question.slice(0, 40)}...", retrieved ${chunks.length} chunks`);
 
-  return {
-    answer: aiResult.content,
-    citations,
-    hasSufficientContext: true,
-    model: aiResult.model,
-  };
+  try {
+    const aiResult = await provider.generateChatCompletion({
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      temperature: 0.2,
+    });
+
+    return {
+      answer: aiResult.content,
+      citations,
+      hasSufficientContext: true,
+      model: aiResult.model,
+    };
+  } catch (err) {
+    console.error(`[RAG Service Error] AI call failed for user ${userId}: ${err.message}`);
+    throw err;
+  }
 }
 
 /**
