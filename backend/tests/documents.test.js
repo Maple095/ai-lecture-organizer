@@ -5,7 +5,7 @@ import path from 'path';
 import crypto from 'crypto';
 import { createApp } from '../src/app.js';
 import { LocalStorageAdapter } from '../src/storage/index.js';
-import { ALLOWED_EXTENSIONS } from '../src/services/documentService.js';
+import { ALLOWED_EXTENSIONS, fixFilenameEncoding } from '../src/services/documentService.js';
 import { pool } from '../src/db/index.js';
 
 describe('Step 3: Document Management System Tests', () => {
@@ -33,6 +33,13 @@ describe('Step 3: Document Management System Tests', () => {
       expect(() => {
         testAdapter.resolveSafePath('../../etc/passwd');
       }).toThrow('SECURITY_ERROR: Path traversal detected');
+    });
+
+    test('fixFilenameEncoding should recover UTF-8 Chinese filenames garbled by Latin1', () => {
+      const original = '3.2 講義.pdf';
+      const garbled = Buffer.from(original, 'utf8').toString('latin1');
+      expect(fixFilenameEncoding(garbled)).toBe(original);
+      expect(fixFilenameEncoding('regular_document.docx')).toBe('regular_document.docx');
     });
 
     test('saveFile should save buffer and compute valid SHA-256', async () => {

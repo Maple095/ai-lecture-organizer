@@ -21,6 +21,22 @@ export const ALLOWED_EXTENSIONS = {
 export const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024; // 20 MB
 
 /**
+ * 修復 Multer 在解析 multipart/form-data 時因預設 latin1 編碼導致的中文檔名亂碼問題
+ * (例如 '3.2 è¬›ç¾©.pdf' 或 '3.2 æ¸å¯—.pdf' 還原為 '3.2 講義.pdf')
+ * @param {string} filename 
+ * @returns {string} 正確 UTF-8 編碼之檔名
+ */
+export function fixFilenameEncoding(filename) {
+  if (!filename || typeof filename !== 'string') return '';
+  try {
+    const decoded = Buffer.from(filename, 'latin1').toString('utf8');
+    return decoded.includes('\uFFFD') ? filename : decoded;
+  } catch {
+    return filename;
+  }
+}
+
+/**
  * 上傳並保存原始講義檔案
  * @param {Object} params
  * @param {string} params.userId
@@ -36,6 +52,10 @@ export async function uploadDocument({ userId, file, courseId = null }) {
     throw err;
   }
 
+  // 修復中文檔名編碼
+  const originalFilename = fixFilenameEncoding(file.originalname);
+  file.originalname = originalFilename;
+
   // 1. 檔案大小檢查
   if (file.size > MAX_FILE_SIZE_BYTES) {
     const err = new Error(`檔案大小 (${(file.size / (1024 * 1024)).toFixed(2)}MB) 超過系統上限 20MB`);
@@ -45,7 +65,7 @@ export async function uploadDocument({ userId, file, courseId = null }) {
   }
 
   // 2. 副檔名與格式檢查
-  const ext = path.extname(file.originalname).toLowerCase();
+  const ext = path.extname(originalFilename).toLowerCase();
   if (!ALLOWED_EXTENSIONS[ext]) {
     const err = new Error(`不支援的檔案格式: ${ext}。目前支援: PDF, DOCX, XLSX, PPTX, TXT, MD, CSV, 圖片`);
     err.code = 'UNSUPPORTED_FILE_TYPE';
@@ -78,7 +98,7 @@ export async function uploadDocument({ userId, file, courseId = null }) {
       docId,
       userId,
       courseId || null,
-      file.originalname,
+      originalFilename,
       saveResult.storagePath,
       saveResult.size,
       mimeType,

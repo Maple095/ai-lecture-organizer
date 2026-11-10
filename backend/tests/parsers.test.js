@@ -119,4 +119,19 @@ describe('Step 4: Multi-format Parser Adapter Tests', () => {
       expect(result.sections[0].text).toContain('雲端架構簡介');
     });
   });
+
+  describe('7. PdfParser Tests', () => {
+    test('should parse PDF buffer and extract text with pageNumber', async () => {
+      const parser = new PdfParser();
+      const stream = 'BT /F1 12 Tf 72 712 Td (Cloud Distributed Architecture) Tj ET';
+      const pdf = '%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/MediaBox[0 0 612 792]/Parent 2 0 R/Resources<</Font<</F1<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>>>>>/Contents 4 0 R>>endobj\n4 0 obj<</Length ' + stream.length + '>>stream\n' + stream + '\nendstream\nendobj\nxref\n0 5\n0000000000 65535 f\n0000000010 00000 n\n0000000060 00000 n\n0000000117 00000 n\n0000000280 00000 n\ntrailer<</Size 5/Root 1 0 R>>\nstartxref\n380\n%%EOF';
+
+      const result = await parser.parse(Buffer.from(pdf));
+      expect(result.parserType).toBe('pdf_parser');
+      expect(result.fullText).toContain('Cloud Distributed Architecture');
+      expect(result.sections.length).toBeGreaterThan(0);
+      expect(result.sections[0].sourceLocation.type).toBe('pdf');
+      expect(result.sections[0].sourceLocation.pageNumber).toBe(1);
+    });
+  });
 });
