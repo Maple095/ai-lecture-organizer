@@ -7,6 +7,7 @@ import {
   getDocumentById,
   deleteDocument,
   fixFilenameEncoding,
+  sanitizeFilename,
   MAX_FILE_SIZE_BYTES
 } from '../services/documentService.js';
 import { processDocument } from '../services/pipelineService.js';
@@ -34,7 +35,7 @@ router.use(requireAuth);
 router.post('/upload', upload.single('file'), async (req, res, next) => {
   try {
     if (req.file && req.file.originalname) {
-      req.file.originalname = fixFilenameEncoding(req.file.originalname);
+      req.file.originalname = sanitizeFilename(req.file.originalname);
     }
     const courseId = req.body.courseId || null;
     const document = await uploadDocument({

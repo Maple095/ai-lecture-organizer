@@ -1,12 +1,29 @@
 import { config } from '../config/index.js';
 
 /**
+ * 標準化構建 Chat Completions API 完整請求端點
+ * 保留子路徑（如 /v1beta/openai/），去除結尾多餘斜線，避免雙斜線或根路徑覆蓋
+ * @param {string} baseUrl
+ * @returns {string} 完整的 /chat/completions URL
+ */
+export function resolveChatCompletionUrl(baseUrl) {
+  if (!baseUrl || typeof baseUrl !== 'string' || !baseUrl.trim()) {
+    return 'https://api.openai.com/v1/chat/completions';
+  }
+  const sanitized = baseUrl.trim().replace(/\/+$/, '');
+  if (sanitized.endsWith('/chat/completions')) {
+    return sanitized;
+  }
+  return `${sanitized}/chat/completions`;
+}
+
+/**
  * OpenAI 相容之通用 AI 模型適配器 (支援 OpenAI, Gemini, DeepSeek, Ollama 等)
  */
 export class AiProviderAdapter {
   constructor(options = {}) {
     this.apiKey = options.apiKey || config.ai.apiKey;
-    this.baseUrl = (options.baseUrl || config.ai.baseUrl).replace(/\/+$/, '');
+    this.baseUrl = (options.baseUrl || config.ai.baseUrl || '').trim();
     this.model = options.model || config.ai.model;
   }
 
@@ -23,9 +40,16 @@ export class AiProviderAdapter {
       throw new Error('MISSING_API_KEY: 未設定 OPENAI_API_KEY 環境變數');
     }
 
-    const endpoint = `${this.baseUrl}/chat/completions`;
+    const endpoint = resolveChatCompletionUrl(this.baseUrl);
+
+    // 自動相容性處理：若使用 Google Gemini 官方 OpenAI 端點但模型仍為預設 gpt-*，自動優化為 gemini-1.5-flash 避免 404
+    let targetModel = this.model;
+    if (endpoint.includes('generativelanguage.googleapis.com') && targetModel.startsWith('gpt-')) {
+      targetModel = 'gemini-1.5-flash';
+    }
+
     const payload = {
-      model: this.model,
+      model: targetModel,
       messages,
       temperature,
       max_tokens: maxTokens,

@@ -50,6 +50,19 @@ export default function AiChatPanel() {
     sessionStorage.removeItem('custom_ai_model');
   }
 
+  function applyPreset(provider) {
+    if (provider === 'gemini') {
+      updateSetting('apiBaseUrl', 'https://generativelanguage.googleapis.com/v1beta/openai/');
+      updateSetting('modelName', 'gemini-1.5-flash');
+    } else if (provider === 'openai') {
+      updateSetting('apiBaseUrl', 'https://api.openai.com/v1');
+      updateSetting('modelName', 'gpt-4o-mini');
+    } else if (provider === 'deepseek') {
+      updateSetting('apiBaseUrl', 'https://api.deepseek.com/v1');
+      updateSetting('modelName', 'deepseek-chat');
+    }
+  }
+
   async function handleSend(customText) {
     const textToSend = customText || question;
     if (!textToSend.trim() || loading) return;
@@ -243,26 +256,56 @@ export default function AiChatPanel() {
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.5rem', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>快速指定模型：</span>
-            {['gpt-4o-mini', 'gpt-4o', 'deepseek-chat'].map(m => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => updateSetting('modelName', m)}
-                style={{
-                  fontSize: '0.7rem',
-                  padding: '0.15rem 0.45rem',
-                  backgroundColor: modelName === m ? '#e0f2fe' : '#ffffff',
-                  color: modelName === m ? '#0369a1' : 'var(--text-main)',
-                  border: '1px solid #cbd5e1',
-                  borderRadius: '4px',
-                  cursor: 'pointer'
-                }}
-              >
-                {m}
-              </button>
-            ))}
+          <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>常用服務範本：</span>
+            <button
+              type="button"
+              onClick={() => applyPreset('gemini')}
+              style={{
+                fontSize: '0.7rem',
+                padding: '0.15rem 0.5rem',
+                backgroundColor: apiBaseUrl.includes('generativelanguage.googleapis.com') ? '#dcfce7' : '#ffffff',
+                color: apiBaseUrl.includes('generativelanguage.googleapis.com') ? '#15803d' : 'var(--text-main)',
+                border: '1px solid #cbd5e1',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontWeight: 600,
+              }}
+            >
+              🟢 Google Gemini (1.5 Flash)
+            </button>
+            <button
+              type="button"
+              onClick={() => applyPreset('openai')}
+              style={{
+                fontSize: '0.7rem',
+                padding: '0.15rem 0.5rem',
+                backgroundColor: (apiBaseUrl === 'https://api.openai.com/v1' || !apiBaseUrl) ? '#e0f2fe' : '#ffffff',
+                color: (apiBaseUrl === 'https://api.openai.com/v1' || !apiBaseUrl) ? '#0369a1' : 'var(--text-main)',
+                border: '1px solid #cbd5e1',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontWeight: 600,
+              }}
+            >
+              🔵 OpenAI (gpt-4o-mini)
+            </button>
+            <button
+              type="button"
+              onClick={() => applyPreset('deepseek')}
+              style={{
+                fontSize: '0.7rem',
+                padding: '0.15rem 0.5rem',
+                backgroundColor: apiBaseUrl.includes('deepseek.com') ? '#f3e8ff' : '#ffffff',
+                color: apiBaseUrl.includes('deepseek.com') ? '#7e22ce' : 'var(--text-main)',
+                border: '1px solid #cbd5e1',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontWeight: 600,
+              }}
+            >
+              🟣 DeepSeek (deepseek-chat)
+            </button>
           </div>
         </div>
       )}

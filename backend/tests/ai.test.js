@@ -1,7 +1,7 @@
 import { jest } from '@jest/globals';
 import request from 'supertest';
 import { createApp } from '../src/app.js';
-import { AiProviderAdapter, aiProvider } from '../src/ai/providerAdapter.js';
+import { AiProviderAdapter, aiProvider, resolveChatCompletionUrl } from '../src/ai/providerAdapter.js';
 import { searchService } from '../src/services/searchService.js';
 import { askQuestionWithRag } from '../src/services/aiService.js';
 
@@ -27,6 +27,19 @@ describe('Step 7: AI RAG & Provider Adapter Tests', () => {
     test('should throw error if apiKey is missing', async () => {
       const adapter = new AiProviderAdapter({ apiKey: '' });
       await expect(adapter.generateChatCompletion({ messages: [] })).rejects.toThrow('MISSING_API_KEY');
+    });
+
+    test('resolveChatCompletionUrl should properly normalize Gemini and other baseUrls without 404 or double slashes', () => {
+      expect(resolveChatCompletionUrl('https://generativelanguage.googleapis.com/v1beta/openai/'))
+        .toBe('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions');
+      expect(resolveChatCompletionUrl('https://generativelanguage.googleapis.com/v1beta/openai'))
+        .toBe('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions');
+      expect(resolveChatCompletionUrl('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'))
+        .toBe('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions');
+      expect(resolveChatCompletionUrl('https://api.openai.com/v1'))
+        .toBe('https://api.openai.com/v1/chat/completions');
+      expect(resolveChatCompletionUrl(''))
+        .toBe('https://api.openai.com/v1/chat/completions');
     });
   });
 

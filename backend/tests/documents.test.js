@@ -6,7 +6,7 @@ import crypto from 'crypto';
 import { Readable } from 'stream';
 import { createApp } from '../src/app.js';
 import { LocalStorageAdapter, storageAdapter } from '../src/storage/index.js';
-import { ALLOWED_EXTENSIONS, fixFilenameEncoding } from '../src/services/documentService.js';
+import { ALLOWED_EXTENSIONS, fixFilenameEncoding, sanitizeFilename } from '../src/services/documentService.js';
 import { pool } from '../src/db/index.js';
 
 describe('Step 3: Document Management System Tests', () => {
@@ -41,6 +41,12 @@ describe('Step 3: Document Management System Tests', () => {
       const garbled = Buffer.from(original, 'utf8').toString('latin1');
       expect(fixFilenameEncoding(garbled)).toBe(original);
       expect(fixFilenameEncoding('regular_document.docx')).toBe('regular_document.docx');
+    });
+
+    test('sanitizeFilename should completely preserve Chinese characters and not replace with x', () => {
+      expect(sanitizeFilename('3.2 講義.pdf')).toBe('3.2 講義.pdf');
+      expect(sanitizeFilename('作業系統概論 (OS) - 期中整理 2024.docx')).toBe('作業系統概論 (OS) - 期中整理 2024.docx');
+      expect(sanitizeFilename('../../危險路徑_講義.pdf')).toBe('_.._危險路徑_講義.pdf');
     });
 
     test('saveFile should save buffer and compute valid SHA-256', async () => {

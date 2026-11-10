@@ -37,6 +37,28 @@ export function fixFilenameEncoding(filename) {
 }
 
 /**
+ * 安全處理檔名：移除危險字元（如路徑穿越、null byte、斜線等），但完整保留所有 UTF-8 中文字元
+ * 嚴禁將非 ASCII 字元替換為 x 或英數，保留所有繁體/簡體中文、日韓文、空格與標準符號
+ * @param {string} filename
+ * @returns {string} 安全且完整保留中文字元的檔名
+ */
+export function sanitizeFilename(filename) {
+  if (!filename || typeof filename !== 'string') return 'unnamed_file';
+  
+  // 1. 還原可能被 latin1 誤譯的 UTF-8 中文檔名
+  const decoded = fixFilenameEncoding(filename);
+
+  // 2. 僅過濾真正具安全風險的路徑穿越或作業系統危險控制字元 (保留中文字元、空格、括號、底線等)
+  let clean = decoded
+    .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // 移除 ASCII 控制字元
+    .replace(/[/\\]/g, '_')                        // 斜線轉為底線防止路徑遍歷注入
+    .replace(/^\.+/, '')                           // 移除開頭點防止隱藏檔
+    .trim();
+
+  return clean || 'unnamed_document';
+}
+
+/**
  * 上傳並保存原始講義檔案
  * @param {Object} params
  * @param {string} params.userId
@@ -52,8 +74,8 @@ export async function uploadDocument({ userId, file, courseId = null }) {
     throw err;
   }
 
-  // 修復中文檔名編碼
-  const originalFilename = fixFilenameEncoding(file.originalname);
+  // 完整保留並安全處理繁簡中文檔名（絕對不將中文轉為 x）
+  const originalFilename = sanitizeFilename(file.originalname);
   file.originalname = originalFilename;
 
   // 1. 檔案大小檢查
