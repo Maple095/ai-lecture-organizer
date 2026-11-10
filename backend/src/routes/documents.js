@@ -11,6 +11,7 @@ import {
 import { processDocument } from '../services/pipelineService.js';
 import { storageAdapter } from '../storage/index.js';
 import { successResponse, errorResponse } from '../utils/response.js';
+import { config } from '../config/index.js';
 
 const router = Router();
 
@@ -38,10 +39,12 @@ router.post('/upload', upload.single('file'), async (req, res, next) => {
       courseId,
     });
 
-    // 非同步自動觸發背景解析 (不阻塞 HTTP 回應)
-    processDocument(document.id).catch(err => {
-      console.warn(`[Background Parse Notice] Doc ${document.id}: ${err.message}`);
-    });
+    // 非同步自動觸發背景解析 (不阻塞 HTTP 回應；測試環境下避免懸掛未等待之非同步連線)
+    if (config.env !== 'test') {
+      processDocument(document.id).catch(err => {
+        console.warn(`[Background Parse Notice] Doc ${document.id}: ${err.message}`);
+      });
+    }
 
     return successResponse(res, document, 201, '檔案上傳成功，已持久化保存');
   } catch (err) {

@@ -4,8 +4,11 @@ import { pool } from './db/index.js';
 
 const app = createApp();
 
-const server = app.listen(config.port, () => {
-  console.log(`[Server] AI Cloud Lecture Platform backend listening on port ${config.port} (env: ${config.env})`);
+const PORT = process.env.PORT || config.port || 3000;
+const HOST = '0.0.0.0';
+
+const server = app.listen(PORT, HOST, () => {
+  console.log(`[Server] AI Cloud Lecture Platform backend listening on http://${HOST}:${PORT} (env: ${config.env})`);
 });
 
 // 優雅關機處理 (Graceful Shutdown)

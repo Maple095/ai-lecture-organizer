@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import session from 'express-session';
 import connectPgSimple from 'connect-pg-simple';
 import { pool } from './db/index.js';
@@ -13,8 +15,16 @@ import documentsRouter from './routes/documents.js';
 import searchRouter from './routes/search.js';
 import chatRouter from './routes/chat.js';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 export function createApp(options = {}) {
   const app = express();
+
+  // ★ 關鍵修正 1：Render 反向代理信任（解決生產環境 Session Cookie 無法寫入問題）
+  if (config.isProduction) {
+    app.set('trust proxy', 1);
+  }
 
   // 1. 安全防護標頭 (Helmet)
   app.use(helmet({
@@ -65,7 +75,7 @@ export function createApp(options = {}) {
       saveUninitialized: false,
       cookie: {
         httpOnly: true,
-        secure: config.isProduction,
+        secure: config.isProduction, // 搭配 trust proxy 正常運作
         sameSite: 'lax',
         maxAge: config.session.maxAge,
       }
@@ -84,8 +94,23 @@ export function createApp(options = {}) {
   app.use('/api/search', searchRouter);
   app.use('/api/chat', chatRouter);
 
-  // 7. 404 處理
-  app.use(notFoundHandler);
+  // ★ 關鍵修正 2：API 路由未匹配攔截（確保 /api/* 的 404 不會誤導向前端 HTML）
+  app.all('/api/*', notFoundHandler);
+
+  // ★ 關鍵修正 3：託管前端 Vite 打包後的 dist 靜態資源並啟用 SPA Fallback
+  const frontendDistPath = path.resolve(__dirname, '../../frontend/dist');
+
+  if (config.isProduction) {
+    app.use(express.static(frontendDistPath));
+
+    // 非 /api 的頁面路由全數轉導給前端 SPA 處理
+    app.get('*', (req, res) => {
+      res.sendFile(path.join(frontendDistPath, 'index.html'));
+    });
+  } else {
+    // 開發或測試環境下若未匹配路由，由 notFoundHandler 統一回傳 404
+    app.use(notFoundHandler);
+  }
 
   // 8. 全域錯誤處理
   app.use(globalErrorHandler);
