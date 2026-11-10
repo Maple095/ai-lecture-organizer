@@ -4,10 +4,17 @@ export default function AiChatPanel() {
   const [question, setQuestion] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  // 自訂 AI API Key 與端點設定 (記憶體 / SessionStorage 暫存，不存入資料庫)
+  const [showSettings, setShowSettings] = useState(false);
+  const [apiKey, setApiKey] = useState(() => sessionStorage.getItem('custom_ai_api_key') || '');
+  const [apiBaseUrl, setApiBaseUrl] = useState(() => sessionStorage.getItem('custom_ai_base_url') || '');
+  const [modelName, setModelName] = useState(() => sessionStorage.getItem('custom_ai_model') || 'gpt-4o-mini');
+
   const [messages, setMessages] = useState([
     {
       role: 'assistant',
-      content: '您好！我是您的講義 AI 助理。您可以向我詢問任何已上傳講義的相關問題，我會為您檢索講義內容並標註來源依據。',
+      content: '您好！我是您的講義 AI 助理。您可以向我詢問任何已上傳講義的相關問題，我會為您檢索講義內容並標註來源依據。若雲端環境尚未設定全域 API Key，可點擊右上角「⚙️ AI 設定」輸入個人金鑰。',
       citations: [],
       hasSufficientContext: true,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -20,6 +27,28 @@ export default function AiChatPanel() {
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
+
+  function updateSetting(key, val) {
+    if (key === 'apiKey') {
+      setApiKey(val);
+      sessionStorage.setItem('custom_ai_api_key', val);
+    } else if (key === 'apiBaseUrl') {
+      setApiBaseUrl(val);
+      sessionStorage.setItem('custom_ai_base_url', val);
+    } else if (key === 'modelName') {
+      setModelName(val);
+      sessionStorage.setItem('custom_ai_model', val);
+    }
+  }
+
+  function handleClearSettings() {
+    setApiKey('');
+    setApiBaseUrl('');
+    setModelName('gpt-4o-mini');
+    sessionStorage.removeItem('custom_ai_api_key');
+    sessionStorage.removeItem('custom_ai_base_url');
+    sessionStorage.removeItem('custom_ai_model');
+  }
 
   async function handleSend(customText) {
     const textToSend = customText || question;
@@ -37,11 +66,22 @@ export default function AiChatPanel() {
     setLoading(true);
 
     try {
+      const payload = {
+        question: textToSend.trim(),
+      };
+
+      // 若使用者有填入自訂金鑰或端點，隨請求一併傳遞 (優先採用)
+      if (apiKey.trim()) {
+        payload.apiKey = apiKey.trim();
+        if (apiBaseUrl.trim()) payload.baseUrl = apiBaseUrl.trim();
+        if (modelName.trim()) payload.model = modelName.trim();
+      }
+
       const res = await fetch('/api/chat/ask', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ question: textToSend.trim() }),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
@@ -98,9 +138,9 @@ export default function AiChatPanel() {
   }
 
   return (
-    <div className="card" style={{ marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', height: '620px' }}>
-      {/* 標題欄 */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', marginBottom: '1rem' }}>
+    <div className="card" style={{ marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', height: '660px' }}>
+      {/* 標題與操作欄 */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', marginBottom: '0.75rem' }}>
         <div>
           <h3 style={{ fontSize: '1.1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <span>🤖</span> AI 智慧講義問答 (RAG)
@@ -109,14 +149,123 @@ export default function AiChatPanel() {
             基於已上傳講義之向量全文檢索，回答皆標註檔案來源與精確頁碼 / 段落
           </p>
         </div>
-        <button
-          className="secondary"
-          style={{ fontSize: '0.75rem', padding: '0.25rem 0.6rem' }}
-          onClick={() => setMessages([messages[0]])}
-        >
-          清空對話
-        </button>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <button
+            type="button"
+            className="secondary"
+            style={{ fontSize: '0.75rem', padding: '0.25rem 0.6rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+            onClick={() => setShowSettings(!showSettings)}
+          >
+            <span>⚙️</span> AI 設定
+            <span style={{
+              fontSize: '0.65rem',
+              padding: '0.1rem 0.35rem',
+              borderRadius: '4px',
+              backgroundColor: apiKey.trim() ? '#dcfce7' : '#f1f5f9',
+              color: apiKey.trim() ? '#15803d' : '#64748b',
+              fontWeight: 600,
+            }}>
+              {apiKey.trim() ? '自訂金鑰' : '預設環境'}
+            </span>
+          </button>
+          <button
+            type="button"
+            className="secondary"
+            style={{ fontSize: '0.75rem', padding: '0.25rem 0.6rem' }}
+            onClick={() => setMessages([messages[0]])}
+          >
+            清空對話
+          </button>
+        </div>
       </div>
+
+      {/* 可折疊 AI 設定面板 */}
+      {showSettings && (
+        <div style={{
+          backgroundColor: '#f8fafc',
+          border: '1px solid var(--border-color)',
+          borderRadius: 'var(--radius)',
+          padding: '0.85rem 1rem',
+          marginBottom: '0.75rem',
+          fontSize: '0.85rem',
+          animation: 'fadeIn 0.2s ease',
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+            <span style={{ fontWeight: 600, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+              <span>🔑</span> 自訂 AI API Key (瀏覽器 Session 記憶體暫存，不寫入資料庫)
+            </span>
+            <button
+              type="button"
+              className="secondary"
+              style={{ fontSize: '0.7rem', padding: '0.15rem 0.5rem' }}
+              onClick={handleClearSettings}
+            >
+              清除重設
+            </button>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.65rem' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.2rem' }}>
+                API Key (金鑰)
+              </label>
+              <input
+                type="password"
+                value={apiKey}
+                onChange={(e) => updateSetting('apiKey', e.target.value)}
+                placeholder="sk-proj-... (未填則回退環境變數)"
+                style={{ width: '100%', padding: '0.4rem 0.6rem', fontSize: '0.8rem', borderRadius: '4px', border: '1px solid var(--border-color)', outline: 'none' }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.2rem' }}>
+                API Base URL (端點)
+              </label>
+              <input
+                type="text"
+                value={apiBaseUrl}
+                onChange={(e) => updateSetting('apiBaseUrl', e.target.value)}
+                placeholder="https://api.openai.com/v1"
+                style={{ width: '100%', padding: '0.4rem 0.6rem', fontSize: '0.8rem', borderRadius: '4px', border: '1px solid var(--border-color)', outline: 'none' }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.2rem' }}>
+                Model (模型名稱)
+              </label>
+              <input
+                type="text"
+                value={modelName}
+                onChange={(e) => updateSetting('modelName', e.target.value)}
+                placeholder="gpt-4o-mini"
+                style={{ width: '100%', padding: '0.4rem 0.6rem', fontSize: '0.8rem', borderRadius: '4px', border: '1px solid var(--border-color)', outline: 'none' }}
+              />
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.5rem', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>快速指定模型：</span>
+            {['gpt-4o-mini', 'gpt-4o', 'deepseek-chat'].map(m => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => updateSetting('modelName', m)}
+                style={{
+                  fontSize: '0.7rem',
+                  padding: '0.15rem 0.45rem',
+                  backgroundColor: modelName === m ? '#e0f2fe' : '#ffffff',
+                  color: modelName === m ? '#0369a1' : 'var(--text-main)',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+              >
+                {m}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 訊息展示區域 */}
       <div style={{ flex: 1, overflowY: 'auto', paddingRight: '0.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -133,7 +282,7 @@ export default function AiChatPanel() {
             >
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', marginBottom: '0.25rem' }}>
                 <span style={{ fontSize: '0.75rem', fontWeight: 600, color: isUser ? 'var(--primary)' : 'var(--text-muted)' }}>
-                  {isUser ? '您' : 'AI 助理'}
+                  {isUser ? '您' : `AI 助理 ${msg.model ? `(${msg.model})` : ''}`}
                 </span>
                 <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>{msg.timestamp}</span>
               </div>

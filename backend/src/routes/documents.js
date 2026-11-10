@@ -152,6 +152,38 @@ router.get('/:id/download', async (req, res, next) => {
 });
 
 /**
+ * @route GET /api/documents/:id/preview
+ * @desc 原始檔案在線預覽/閱覽 (瀏覽器原生支援 PDF, TXT, MD, 圖片 等格式)
+ */
+router.get('/:id/preview', async (req, res, next) => {
+  try {
+    const doc = await getDocumentById({
+      id: req.params.id,
+      userId: req.user.id,
+    });
+
+    const fileStream = storageAdapter.getFileStream(doc.storage_path);
+
+    const encodedFilename = encodeURIComponent(doc.original_filename);
+    res.setHeader('Content-Type', doc.mime_type || 'application/octet-stream');
+    res.setHeader(
+      'Content-Disposition',
+      `inline; filename="${encodedFilename}"; filename*=UTF-8''${encodedFilename}`
+    );
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('ETag', `"${doc.checksum_sha256}"`);
+    res.setHeader('Content-Length', doc.file_size);
+
+    fileStream.pipe(res);
+  } catch (err) {
+    if (err.status) {
+      return errorResponse(res, err.code, err.message, err.status);
+    }
+    next(err);
+  }
+});
+
+/**
  * @route DELETE /api/documents/:id
  * @desc 刪除文件記錄與實體檔案
  */

@@ -117,5 +117,39 @@ describe('Step 7: AI RAG & Provider Adapter Tests', () => {
       expect(res.body.data.citations.length).toBe(1);
       expect(res.body.data.citations[0].filename).toBe('DataStructures.docx');
     });
+
+    test('POST /api/chat/ask with custom apiKey should instantiate custom provider and return answer', async () => {
+      jest.spyOn(searchService, 'searchChunks').mockResolvedValue([
+        {
+          id: 'c-custom-1',
+          document_id: 'd-custom-1',
+          chunk_index: 0,
+          content: '作業系統的核心包含行程排班與記憶體管理。',
+          source_location: { type: 'pdf', pageNumber: 2 },
+          original_filename: 'OS_Concepts.pdf',
+        }
+      ]);
+
+      const spyCustomGenerate = jest.spyOn(AiProviderAdapter.prototype, 'generateChatCompletion').mockResolvedValue({
+        content: '行程排班是作業系統核心的關鍵模組 [來源 1]。',
+        usage: {},
+        model: 'deepseek-chat',
+      });
+
+      const res = await request(app)
+        .post('/api/chat/ask')
+        .send({
+          question: '行程排班的作用是什麼？',
+          apiKey: 'sk-custom-test-key-12345',
+          baseUrl: 'https://api.deepseek.com/v1',
+          model: 'deepseek-chat',
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.answer).toContain('行程排班');
+      expect(res.body.data.model).toBe('deepseek-chat');
+      expect(spyCustomGenerate).toHaveBeenCalled();
+    });
   });
 });

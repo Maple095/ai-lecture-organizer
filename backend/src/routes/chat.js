@@ -20,16 +20,27 @@ router.use(requireAuth);
  */
 router.post('/ask', async (req, res, next) => {
   try {
-    const { question, documentId } = req.body;
+    const { question, documentId, apiKey, baseUrl, model } = req.body;
     const result = await askQuestionWithRag({
       userId: req.user.id,
       question,
       documentId,
+      apiKey,
+      baseUrl,
+      model,
     });
     return successResponse(res, result, 200);
   } catch (err) {
     if (err.status) {
       return errorResponse(res, err.code, err.message, err.status);
+    }
+    if (err.message && err.message.startsWith('MISSING_API_KEY')) {
+      return errorResponse(
+        res,
+        'MISSING_API_KEY',
+        '尚未設定 AI API Key。請於上方「AI 設定」面板填入您的 API Key，或在伺服器設定 OPENAI_API_KEY 環境變數。',
+        400
+      );
     }
     next(err);
   }

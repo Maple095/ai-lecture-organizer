@@ -127,12 +127,31 @@ export default function DocumentList({ refreshTrigger }) {
                           backgroundColor: 'var(--primary-light)',
                           color: 'var(--primary)',
                           borderRadius: '4px',
-                          fontWeight: 500
+                          fontWeight: 500,
+                          textDecoration: 'none'
                         }}
                       >
                         下載
                       </a>
                       <button
+                        type="button"
+                        onClick={() => window.open(`/api/documents/${doc.id}/preview`, '_blank')}
+                        style={{
+                          fontSize: '0.75rem',
+                          padding: '0.25rem 0.5rem',
+                          backgroundColor: '#f0fdf4',
+                          color: '#15803d',
+                          border: '1px solid #bbf7d0',
+                          borderRadius: '4px',
+                          fontWeight: 500,
+                          cursor: 'pointer'
+                        }}
+                        title="在新分頁在線預覽此講義檔案"
+                      >
+                        預覽
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => handleDelete(doc.id, doc.original_filename)}
                         style={{
                           fontSize: '0.75rem',
@@ -140,7 +159,8 @@ export default function DocumentList({ refreshTrigger }) {
                           backgroundColor: '#fef2f2',
                           color: 'var(--danger)',
                           border: 'none',
-                          borderRadius: '4px'
+                          borderRadius: '4px',
+                          cursor: 'pointer'
                         }}
                       >
                         刪除

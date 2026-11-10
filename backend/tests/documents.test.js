@@ -3,8 +3,9 @@ import request from 'supertest';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import { Readable } from 'stream';
 import { createApp } from '../src/app.js';
-import { LocalStorageAdapter } from '../src/storage/index.js';
+import { LocalStorageAdapter, storageAdapter } from '../src/storage/index.js';
 import { ALLOWED_EXTENSIONS, fixFilenameEncoding } from '../src/services/documentService.js';
 import { pool } from '../src/db/index.js';
 
@@ -196,6 +197,37 @@ describe('Step 3: Document Management System Tests', () => {
       const res = await request(authApp).delete('/api/documents/doc-to-delete');
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
+    });
+
+    test('GET /api/documents/:id/preview should return inline Content-Disposition and nosniff header', async () => {
+      const mockDoc = {
+        id: 'doc-preview-1',
+        user_id: mockUserId,
+        original_filename: 'Lecture_Preview.pdf',
+        storage_path: 'test/preview.pdf',
+        file_size: 15,
+        mime_type: 'application/pdf',
+        checksum_sha256: 'mock-sha-256',
+      };
+
+      jest.spyOn(pool, 'query').mockImplementation(async (sql) => {
+        if (typeof sql === 'string' && sql.includes('SELECT id, user_id')) {
+          return { rowCount: 1, rows: [mockDoc] };
+        }
+        return { rowCount: 0, rows: [] };
+      });
+
+      const mockStream = new Readable();
+      mockStream.push('Mock PDF Stream');
+      mockStream.push(null);
+      jest.spyOn(storageAdapter, 'getFileStream').mockReturnValue(mockStream);
+
+      const res = await request(authApp).get('/api/documents/doc-preview-1/preview');
+      expect(res.status).toBe(200);
+      expect(res.headers['content-type']).toContain('application/pdf');
+      expect(res.headers['content-disposition']).toContain('inline');
+      expect(res.headers['x-content-type-options']).toBe('nosniff');
+      expect(res.body.toString()).toBe('Mock PDF Stream');
     });
   });
 });

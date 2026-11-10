@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { query } from '../db/index.js';
 import { searchService } from './searchService.js';
-import { aiProvider } from '../ai/providerAdapter.js';
+import { aiProvider, AiProviderAdapter } from '../ai/providerAdapter.js';
 
 /**
  * 執行基於檢索內容的 RAG 智慧問答
@@ -9,9 +9,19 @@ import { aiProvider } from '../ai/providerAdapter.js';
  * @param {string} params.userId
  * @param {string} params.question
  * @param {string} [params.documentId]
- * @returns {Promise<{ answer: string, citations: Array<Object>, hasSufficientContext: boolean }>}
+ * @param {string} [params.apiKey] - 自訂 API 金鑰 (選填，優先採用)
+ * @param {string} [params.baseUrl] - 自訂 API Base URL (選填)
+ * @param {string} [params.model] - 自訂模型名稱 (選填)
+ * @returns {Promise<{ answer: string, citations: Array<Object>, hasSufficientContext: boolean, model?: string }>}
  */
-export async function askQuestionWithRag({ userId, question, documentId = null }) {
+export async function askQuestionWithRag({
+  userId,
+  question,
+  documentId = null,
+  apiKey = null,
+  baseUrl = null,
+  model = null
+}) {
   if (!question || !question.trim()) {
     const err = new Error('請輸入欲提問的問題');
     err.code = 'EMPTY_QUESTION';
@@ -64,8 +74,12 @@ ${contextText}
 【學生提問】：
 ${question}`;
 
-  // 4. 呼叫 AI 模型生成回答
-  const aiResult = await aiProvider.generateChatCompletion({
+  // 4. 動態決定 AI Provider 實例 (優先採用前端使用者傳入之自訂金鑰，未提供則回退伺服器預設 aiProvider)
+  const provider = (apiKey && apiKey.trim())
+    ? new AiProviderAdapter({ apiKey: apiKey.trim(), baseUrl, model })
+    : aiProvider;
+
+  const aiResult = await provider.generateChatCompletion({
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt }
@@ -77,6 +91,7 @@ ${question}`;
     answer: aiResult.content,
     citations,
     hasSufficientContext: true,
+    model: aiResult.model,
   };
 }
 
